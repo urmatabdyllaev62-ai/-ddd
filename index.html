@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<title>Нарды — улучшенная версия</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --board-w: 900px;
+    --board-h: 450px;
+  }
+
+  body {
+    margin: 0;
+    background: radial-gradient(circle at center, #d7c3a2, #b18b61);
+    font-family: "Segoe UI", Roboto, Arial;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    user-select: none;
+  }
+
+  .game-container {
+    width: var(--board-w);
+    height: var(--board-h);
+    background: repeating-linear-gradient(
+      90deg,
+      #a47142,
+      #a47142 50%,
+      #8b5a2b 50%,
+      #8b5a2b 100%
+    );
+    background-size: 160px 100%;
+    border-radius: 16px;
+    position: relative;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+    border: 8px solid #3b2412;
+  }
+
+  .row {
+    width: 100%;
+    height: 50%;
+    display: flex;
+  }
+
+  .point {
+    width: calc(100% / 12);
+    height: 100%;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    box-sizing: border-box;
+    transition: background 0.3s;
+  }
+
+  .top .point {
+    align-items: flex-start;
+    clip-path: polygon(50% 100%, 100% 0, 0 0);
+  }
+
+  .bottom .point {
+    align-items: flex-end;
+    clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  }
+
+  .point.light {
+    background: #deb887;
+  }
+
+  .point.dark {
+    background: #a0522d;
+  }
+
+  .checker {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 2px solid #222;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: inset 0 2px 3px rgba(255, 255, 255, 0.4),
+                0 4px 6px rgba(0, 0, 0, 0.4);
+    transition: transform 0.2s;
+  }
+
+  .checker.white {
+    background: radial-gradient(circle at 30% 30%, #fff, #ddd);
+    color: #111;
+  }
+
+  .checker.black {
+    background: radial-gradient(circle at 30% 30%, #444, #111);
+    color: #fff;
+  }
+
+  .checker:hover {
+    transform: translateX(-50%) scale(1.1);
+  }
+
+  .checker.selected {
+    outline: 4px solid rgba(255, 255, 0, 0.6);
+    z-index: 20;
+    transform: translateX(-50%) scale(1.15);
+  }
+
+  .point.can-move {
+    box-shadow: inset 0 0 0 4px rgba(255, 255, 0, 0.3);
+  }
+
+  /* Панели и кнопки */
+  .controls {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .dice {
+    width: 60px;
+    height: 60px;
+    background: radial-gradient(circle at 30% 30%, #fff, #ccc);
+    border: 2px solid #222;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 700;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  .roll-btn {
+    background: linear-gradient(180deg, #3b2f2f, #2b1e1e);
+    color: #fff;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    box-shadow: 0 5px 14px rgba(0, 0, 0, 0.4);
+    transition: all 0.2s;
+  }
+
+  .roll-btn:hover {
+    background: linear-gradient(180deg, #5a3d3d, #3b2f2f);
+  }
+
+  .roll-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .turn-indicator {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.45);
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 15px;
+  }
+
+  .info {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    color: #fff;
+    font-size: 13px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 6px 10px;
+    border-radius: 8px;
+  }
+
+  @media (max-width: 800px) {
+    :root {
+      --board-w: 700px;
+      --board-h: 360px;
+    }
+    .dice {
+      width: 50px;
+      height: 50px;
+      font-size: 18px;
+    }
+  }
+
+  @media (max-width: 500px) {
+    :root {
+      --board-w: 360px;
+      --board-h: 280px;
+    }
+    .roll-btn {
+      padding: 8px 12px;
+      font-size: 13px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="game-container" id="board">
+  <div class="row top" id="topRow"></div>
+  <div class="row bottom" id="bottomRow"></div>
+
+  <div class="turn-indicator" id="turnIndicator">Ход: ⚪ Белые</div>
+  <div class="info" id="movesInfo">Ходы: —</div>
+
+  <div class="controls" id="controls">
+    <button class="roll-btn" id="roll">🎲 Бросить кубики</button>
+    <div class="dice" id="dice1">-</div>
+    <div class="dice" id="dice2">-</div>
+  </div>
+</div>
+
+<script>
+const topRow = document.getElementById('topRow');
+const bottomRow = document.getElementById('bottomRow');
+const turnIndicator = document.getElementById('turnIndicator');
+const movesInfo = document.getElementById('movesInfo');
+const rollBtn = document.getElementById('roll');
+const dice1El = document.getElementById('dice1');
+const dice2El = document.getElementById('dice2');
+
+let points = [];
+let currentPlayer = 'white';
+let availableMoves = [];
+let selectedChecker = null;
+
+// создание точек
+for(let i=0;i<12;i++){
+  const p=document.createElement('div');
+  p.className='point '+(i%2?'dark':'light');
+  p.dataset.index=i;
+  topRow.appendChild(p);
+  points.push(p);
+}
+for(let i=12;i<24;i++){
+  const p=document.createElement('div');
+  const j=i-12;
+  p.className='point '+(j%2?'light':'dark');
+  p.dataset.index=i;
+  bottomRow.appendChild(p);
+  points.push(p);
+}
+
+function placeCheckerIntoPoint(el, idx){
+  const p=points[idx];
+  el.style.removeProperty('top');
+  el.style.removeProperty('bottom');
+  const color=el.classList.contains('white')?'white':'black';
+  const same=Array.from(p.children).filter(c=>c.classList&&c.classList.contains(color)).length;
+  
+  if(idx<=11){ 
+    // Верхний ряд - шашки ставятся сверху вниз
+    el.style.top=(6+same*44)+'px'; 
+  }
+  else{ 
+    // Нижний ряд - шашки ставятся снизу вверх
+    el.style.bottom=(6+same*44)+'px'; 
+  }
+  p.appendChild(el);
+}
+
+const setup=[
+  {point:0,color:'white',count:2},
+  {point:5,color:'white',count:5},
+  {point:11,color:'black',count:2},
+  {point:18,color:'black',count:5}
+];
+setup.forEach(s=>{
+  for(let i=0;i<s.count;i++){
+    const c=document.createElement('div');
+    c.className='checker '+s.color;
+    c.dataset.color=s.color;
+    c.addEventListener('click',e=>{e.stopPropagation();onCheckerClick(c);});
+    placeCheckerIntoPoint(c,s.point);
+  }
+});
+
+points.forEach((p,i)=>p.addEventListener('click',()=>onPointClick(i)));
+
+function getPointIndexOfElement(el){
+  const parent=el.parentElement;
+  if(parent&&parent.classList.contains('point')) return Number(parent.dataset.index);
+  return null;
+}
+
+function onCheckerClick(el){
+  const color=el.dataset.color;
+  if(color!==currentPlayer){ return; }
+  if(selectedChecker===el){ el.classList.remove('selected');selectedChecker=null;clearHighlight();return; }
+  if(selectedChecker) selectedChecker.classList.remove('selected');
+  selectedChecker=el;
+  el.classList.add('selected');
+  highlightPossibleMoves();
+}
+
+function highlightPossibleMoves(){
+  clearHighlight();
+  if(!selectedChecker||availableMoves.length===0) return;
+  const from=getPointIndexOfElement(selectedChecker);
+  if(from===null)return;
+  const moves=new Set(availableMoves);
+  points.forEach((p,i)=>{
+    const d=Math.abs(i-from);
+    if(moves.has(d)) p.classList.add('can-move');
+  });
+}
+
+function clearHighlight(){
+  points.forEach(p=>p.classList.remove('can-move'));
+}
+
+function onPointClick(toIdx){
+  if(!selectedChecker) return;
+  const from=getPointIndexOfElement(selectedChecker);
+  const d=Math.abs(toIdx-from);
+  const moveIdx=availableMoves.indexOf(d);
+  if(moveIdx===-1) return;
+  availableMoves.splice(moveIdx,1);
+  placeCheckerIntoPoint(selectedChecker,toIdx);
+  selectedChecker.classList.remove('selected');
+  selectedChecker=null;
+  clearHighlight();
+  updateMoves();
+  if(availableMoves.length===0) endTurn();
+}
+
+function rollDice(){
+  const d1=Math.ceil(Math.random()*6);
+  const d2=Math.ceil(Math.random()*6);
+  dice1El.textContent=d1;
+  dice2El.textContent=d2;
+  availableMoves=d1===d2?[d1,d1,d1,d1]:[d1,d2];
+  rollBtn.disabled=true;
+  updateMoves();
+}
+
+function updateMoves(){
+  movesInfo.textContent='Ходы: '+(availableMoves.length?availableMoves.join(', '):'—');
+}
+
+function endTurn(){
+  if(selectedChecker){selectedChecker.classList.remove('selected');selectedChecker=null;}
+  clearHighlight();
+  currentPlayer=currentPlayer==='white'?'black':'white';
+  turnIndicator.textContent='Ход: '+(currentPlayer==='white'?'⚪ Белые':'⚫ Чёрные');
+  dice1El.textContent='-';dice2El.textContent='-';
+  availableMoves=[];rollBtn.disabled=false;
+  updateMoves();
+}
+
+rollBtn.addEventListener('click',()=>{
+  if(availableMoves.length>0)return;
+  rollDice();
+});
+
+updateMoves();
+</script>
+</body>
+</html>
